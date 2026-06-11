@@ -18,3 +18,18 @@ diff list1.txt list2.txt
 
 All good, I only have genes that are in the list now in only_cardio2.tsv
 
+I will remove samples with "." in global frequency
+awk '$6 != "."' only_cardio2.tsv > only_cardio3.tsv
+
+Keeping 3278 snps
+
+Now I will remove from frequencies those that are not present in cardio panel:
+awk 'NR==FNR{a[$7]; next} ($2 in a){print > FILENAME".filtered"}' only_cardio3.tsv only_KAZ.frq only_EAS.frq only_EUR.frq
+
+Next need to remove those where frequency is crazy different because of allele flip
+
+RN i have only_KAZ.frq.filtered, only_EUR.frq.filtered, and only_EAS.frq.filtered
+
+I will extract column 5 from each of them and name accordingly and join them with only_cardio3.tsv based on column 7 of the latter and column 2 of the former(s)
+
+Then I will compare global frequencies to my kaz,eas and eur and from there I can do my analysis
