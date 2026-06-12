@@ -3,33 +3,71 @@ Using workflow from https://link.springer.com/article/10.1186/s12886-021-01830-9
 I copied EAS, EUR, and KAZ binary files + final_annovared.tsv into folder paper2_akilzhanova
 In the paper they used 138 SNPs. I will also use a a certain number of SNPs using cardio panel. I saved the file trusight into genes.tsv (just keeping the gene names)
 
-cat final_annovared_extended.tsv | cut -f 1,2,4,5,7,24,456 > selected_annotation.tsv
+```bash
+cat final_annovared_extended.tsv | cut -f 1,2,4,5,7,61,63,456 > selected_annotation.tsv
 grep -Fw -f genes.tsv selected_annotation.tsv > only_cardio.tsv
 awk '$5 !~ /[;-]/' only_cardio.tsv > only_cardio2.tsv
+```
 
 I have 8194 SNPs with genes that match the panel; some matches are parial so i will remove all genes where there is a ; or -
 
+```bash
 cat only_cardio2.tsv | cut -f 5 | sed 's/;.*//' | sort | uniq | wc -l
+```
+
 157/174 genes in the list are represented in my snp list of 4262 
 
+```bash
 cat only_cardio2.tsv | cut -f 5 | sort | uniq | sort > list1.txt
 cat genes.tsv | sort > list2.txt
 diff list1.txt list2.txt 
+```
 
 All good, I only have genes that are in the list now in only_cardio2.tsv
 
 I will remove samples with "." in global frequency
+```bash
 awk '$6 != "."' only_cardio2.tsv > only_cardio3.tsv
+```
 
 Keeping 3278 snps
 
 Now I will remove from frequencies those that are not present in cardio panel:
-awk 'NR==FNR{a[$7]; next} ($2 in a){print > FILENAME".filtered"}' only_cardio3.tsv only_KAZ.frq only_EAS.frq only_EUR.frq
+```bash
+awk 'NR==FNR{a[$8]; next} ($2 in a){print > FILENAME".filtered"}' only_cardio3.tsv only_KAZ.frq only_EAS.frq only_EUR.frq
+```
 
 Next need to remove those where frequency is crazy different because of allele flip
 
 RN i have only_KAZ.frq.filtered, only_EUR.frq.filtered, and only_EAS.frq.filtered
 
-I will extract column 5 from each of them and name accordingly and join them with only_cardio3.tsv based on column 7 of the latter and column 2 of the former(s)
+I will extract column 5 from each of them (only_KAZ.frq.filtered,only_EAS.frq.filtered,only_EUR.frq.filtered) and name accordingly and join them with only_cardio3.tsv based on column 8 of the latter and column 2 of the former(s)
+```bash
+# extract col 2 and col 5 from each frequency file
+awk '{print $2, $5}' only_KAZ.frq.filtered > kaz_freq.tmp
+awk '{print $2, $5}' only_EAS.frq.filtered > eas_freq.tmp
+awk '{print $2, $5}' only_EUR.frq.filtered > eur_freq.tmp
 
-Then I will compare global frequencies to my kaz,eas and eur and from there I can do my analysis
+# first join: cardio col7 vs KAZ col1
+join -1 8 -2 1 <(sort -k8,8 only_cardio3.tsv) <(sort -k1,1 kaz_freq.tmp) | \
+sort -k1,1 > step1.tmp
+
+# second join: step1 col1 vs EAS col1
+join -1 1 -2 1 step1.tmp <(sort -k1,1 eas_freq.tmp) | \
+sort -k1,1 > step2.tmp
+
+# third join: step2 col1 vs EUR col1
+join -1 1 -2 1 step2.tmp <(sort -k1,1 eur_freq.tmp) > only_cardio_freqs.tsv
+
+# cleanup
+rm kaz_freq.tmp eas_freq.tmp eur_freq.tmp step1.tmp step2.tmp
+```
+
+Adding header and making it tab separated instead of spaces
+```bash
+echo "rsID chr location ref alt gene kaviar_frq kaviar_number KAZ EAS EUR" > only_cardio_freqs2.tsv
+cat only_cardio_freqs.tsv >> only_cardio_freqs2.tsv
+sed 's/ /\t/g' only_cardio_freqs2.tsv > only_cardio_freqs3.tsv
+```
+
+I wrote custom script to calculate p-values 
