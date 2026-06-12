@@ -1,6 +1,9 @@
 Using workflow from https://link.springer.com/article/10.1186/s12886-021-01830-9
 
 I copied EAS, EUR, and KAZ binary files + final_annovared.tsv into folder paper2_akilzhanova
+It has data from
+European Nucleotide Archive. Human Genome Diversity Project raw sequencing data (PRJEB6463). ENA https://identifiers.org/ena.embl:PRJEB6463 (2020).
+
 In the paper they used 138 SNPs. I will also use a a certain number of SNPs using cardio panel. I saved the file trusight into genes.tsv (just keeping the gene names)
 
 ```bash
@@ -30,14 +33,12 @@ I will remove samples with "." in global frequency
 awk '$6 != "."' only_cardio2.tsv > only_cardio3.tsv
 ```
 
-Keeping 3278 snps
+Keeping 3339 snps with kaviar frequency available
 
 Now I will remove from frequencies those that are not present in cardio panel:
 ```bash
 awk 'NR==FNR{a[$8]; next} ($2 in a){print > FILENAME".filtered"}' only_cardio3.tsv only_KAZ.frq only_EAS.frq only_EUR.frq
 ```
-
-Next need to remove those where frequency is crazy different because of allele flip
 
 RN i have only_KAZ.frq.filtered, only_EUR.frq.filtered, and only_EAS.frq.filtered
 
@@ -70,4 +71,44 @@ cat only_cardio_freqs.tsv >> only_cardio_freqs2.tsv
 sed 's/ /\t/g' only_cardio_freqs2.tsv > only_cardio_freqs3.tsv
 ```
 
-I wrote custom script to calculate p-values 
+2914 snps (2915 rows but 1 is header) that are present in reference dataset used (HGDP)
+
+The populations used:
+```
+French	European
+Basque	European
+Sardinian	European
+Russian	European
+Orcadian	European
+Tuscan	European
+Bergamo	European
+Han	East Asian
+Japanese	East Asian
+Dai	East Asian
+Hezhen	East Asian
+Miao	East Asian
+Naxi	East Asian
+Oroqen	East Asian
+She	East Asian
+Tujia	East Asian
+Tu	East Asian
+Xibo	East Asian
+Yi	East Asian
+Cambodian	East Asian
+Lahu	East Asian
+Daur	East Asian
+Mongolian	East Asian
+```
+
+I wrote custom script to calculate p-values (included in this directory)
+
+I will also extract whether they are exonic or not
+```bash
+cat final_annovared_extended.tsv | cut -f 9,456 | awk '$1 != "."' > functional.tsv
+cat functional.tsv | cut -f 2 > list1.txt
+cat kaz_specific_snps.csv | cut -d "," -f 1 > list2.txt
+comm -12 <(sort list1.txt) <(sort list2.txt) > non_intronic_snps.csv
+# there are 35 non-intronic snps with significance
+awk -F',' 'NR==FNR {ids[$1]; next} FNR==1 || $1 in ids' non_intronic_snps.csv kaz_specific_snps.csv > kaz_specific_snps_exonic.csv
+# i saved these 35 in separate file
+```
